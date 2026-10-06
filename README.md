@@ -30,8 +30,16 @@ go run ./cmd/paleo-prep-station --addr 127.0.0.1:18133
 - `POST /specimens/{id}/plans`
 - `GET /plans/{id}`
 - `POST /plans/{id}/approval`
-- `POST /plans/{id}/progress`
+- `POST /plans/{id}/assignments`（领用）与 `GET /plans/{id}/assignments`（责任台账）
+- `POST /plans/{id}/assignment/transfer`（转派）
+- `POST /plans/{id}/progress`（仅当前责任人）
+- `GET /workbench`（未结束方案与当前责任人）
+- `GET /staff`、`POST /staff` 与 `GET /staff/{id}`（含当前责任数与上限）
 - `POST /specimens/{id}/release`
+
+## 领用与转派
+
+已审批方案先由制备负责人（`prep_lead`）领用给在册制备人员（`preparator`），每人同时最多承担 3 个未结束方案。转派在同一事务中释放旧责任行并建立新责任行；只有当前责任人能追加进度，方案完成后不能继续转派。
 
 ## 本地验证
 
@@ -42,6 +50,7 @@ go run ./cmd/workflowcheck --workflow register-specimen
 go run ./cmd/workflowcheck --workflow approve-prep-plan
 go run ./cmd/workflowcheck --workflow log-preparation
 go run ./cmd/workflowcheck --workflow release-for-study
+go run ./cmd/workflowcheck --workflow assign-and-transfer
 ```
 
 这些检查会启动临时 HTTP 处理器并调用真实公共路由。

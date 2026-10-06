@@ -128,6 +128,28 @@
         "repository",
         "contracts"
       ]
+    },
+    {
+      "id": "assign-and-transfer",
+      "name": "Claim and transfer plan assignment",
+      "entry": "POST /plans/{id}/assignments + POST /plans/{id}/assignment/transfer",
+      "steps": [
+        "verify the assigning actor is a prep lead and the target is an active preparator",
+        "reject duplicate and concurrent claims so exactly one holder exists, and enforce the per-preparator open-plan cap",
+        "release the old holder and establish the new holder in one repository mutation; block transfers after completion"
+      ],
+      "success": "returns the active assignment row and exposes the current holder on workbench and staff views",
+      "failure": "returns deterministic conflict for duplicate claims, unqualified targets, over-cap holders or closed plans, and not found for unknown plans",
+      "verification": "workflowcheck claims, concurrently races, transfers, enforces the cap and verifies progress rights and terminal transfer rejection",
+      "module_ids": [
+        "entrypoint",
+        "runtimecheck",
+        "httpapi",
+        "station",
+        "domain",
+        "repository",
+        "contracts"
+      ]
     }
   ],
   "complexity": {

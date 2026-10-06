@@ -28,9 +28,11 @@ func (s *Service) LogProgress(
 			return notFoundSpecimen(plan.SpecimenID)
 		}
 		previous := m.ProgressForPlan(planID)
+		activeAssignment := domain.FindActiveAssignment(m.AssignmentsForPlan(planID))
 		entry, err := domain.NewProgressEntry(
 			s.nextID("progress"),
 			plan,
+			activeAssignment,
 			previous,
 			request.Stage,
 			request.Percent,

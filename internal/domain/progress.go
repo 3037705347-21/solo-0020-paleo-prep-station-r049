@@ -21,6 +21,7 @@ type ProgressEntry struct {
 func NewProgressEntry(
 	id string,
 	plan PrepPlan,
+	activeAssignment *PlanAssignment,
 	previous []ProgressEntry,
 	stage string,
 	percent int,
@@ -34,6 +35,16 @@ func NewProgressEntry(
 	if plan.Status != PlanApproved && plan.Status != PlanActive {
 		return ProgressEntry{}, contracts.Conflict("plan_not_recordable", "当前方案状态不能追加制备进度")
 	}
+	recorder, err := requiredText("记录人", recordedBy, 80)
+	if err != nil {
+		return ProgressEntry{}, err
+	}
+	if activeAssignment == nil {
+		return ProgressEntry{}, contracts.Conflict("plan_not_assigned", "方案尚未领用，不能记录进度")
+	}
+	if recorder != activeAssignment.PreparatorID {
+		return ProgressEntry{}, contracts.Conflict("not_current_holder", "只有方案当前责任人可以追加进度")
+	}
 	if err := validatePercent(percent); err != nil {
 		return ProgressEntry{}, err
 	}
@@ -42,10 +53,6 @@ func NewProgressEntry(
 		return ProgressEntry{}, err
 	}
 	noteValue, err := optionalText("进度说明", note, 500)
-	if err != nil {
-		return ProgressEntry{}, err
-	}
-	recorder, err := requiredText("记录人", recordedBy, 80)
 	if err != nil {
 		return ProgressEntry{}, err
 	}

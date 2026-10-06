@@ -31,3 +31,19 @@ type ReleaseRequest struct {
 	Recipient  string `json:"recipient"`
 	ApprovedBy string `json:"approved_by"`
 }
+
+type RegisterStaffRequest struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+type ClaimAssignmentRequest struct {
+	PreparatorID string `json:"preparator_id"`
+	AssignedBy   string `json:"assigned_by"`
+}
+
+type TransferAssignmentRequest struct {
+	TargetPreparatorID string `json:"target_preparator_id"`
+	AssignedBy         string `json:"assigned_by"`
+}

@@ -37,8 +37,25 @@ func (s *Service) nextID(prefix string) string {
 }
 
 type PlanSnapshot struct {
-	Plan     domain.PrepPlan        `json:"plan"`
-	Progress []domain.ProgressEntry `json:"progress"`
+	Plan              domain.PrepPlan        `json:"plan"`
+	Progress          []domain.ProgressEntry `json:"progress"`
+	CurrentAssignment *domain.PlanAssignment `json:"current_assignment,omitempty"`
+}
+
+// WorkbenchItem shows who currently owns each open plan so responsibility is
+// visible without opening the plan history.
+type WorkbenchItem struct {
+	PlanID            string                 `json:"plan_id"`
+	SpecimenID        string                 `json:"specimen_id"`
+	PlanStatus        domain.PlanStatus      `json:"plan_status"`
+	CurrentAssignment *domain.PlanAssignment `json:"current_assignment,omitempty"`
+}
+
+// StaffWorkload reports a preparator's current load against the claim limit.
+type StaffWorkload struct {
+	Member        domain.StaffMember `json:"member"`
+	OpenClaims    int                `json:"open_claims"`
+	AssignmentCap int                `json:"assignment_cap"`
 }
 
 func (s *Service) ListSpecimens(ctx context.Context) ([]domain.Specimen, error) {
