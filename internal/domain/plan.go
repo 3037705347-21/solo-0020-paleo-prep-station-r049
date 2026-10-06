@@ -26,6 +26,8 @@ type PrepPlan struct {
 	Status         PlanStatus `json:"status"`
 	ApprovedBy     string     `json:"approved_by,omitempty"`
 	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	AssigneeID     string     `json:"assignee_id,omitempty"`
+	AssignmentID   string     `json:"assignment_id,omitempty"`
 	Version        int        `json:"version"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
@@ -84,6 +86,68 @@ func (p PrepPlan) IsOpen() bool {
 
 func (p PrepPlan) IsCompleted() bool {
 	return p.Status == PlanCompleted
+}
+
+// GrantResponsibility assigns an unclaimed approved or active plan to a preparator.
+// Eligibility of the holder is enforced by the service against the staff directory.
+func (p *PrepPlan) GrantResponsibility(assigneeID, assignmentID string, now time.Time) error {
+	if p.Status != PlanApproved && p.Status != PlanActive {
+		return contracts.Conflict("plan_not_claimable", "只有已审批且未完成的方案可以领用")
+	}
+	if p.AssigneeID != "" {
+		return contracts.Conflict("plan_already_assigned", "方案已被领用，不能重复领用")
+	}
+	holder, err := requiredText("责任人", assigneeID, 80)
+	if err != nil {
+		return err
+	}
+	if assignmentID == "" {
+		return contracts.Internal("missing_generated_id", "领用标识未生成", nil)
+	}
+	stamp := now.UTC()
+	p.AssigneeID = holder
+	p.AssignmentID = assignmentID
+	p.Version++
+	p.UpdatedAt = stamp
+	return nil
+}
+
+// TransferResponsibility hands a held plan from its current holder to a new one.
+// The old responsibility is released and the new one established by the caller in
+// the same commit; same-holder transfers are rejected.
+func (p *PrepPlan) TransferResponsibility(fromID, toID, assignmentID string, now time.Time) error {
+	if p.Status == PlanCompleted || p.Status == PlanCancelled {
+		return contracts.Conflict("plan_not_reassignable", "已结束的方案不能继续转派")
+	}
+	if p.Status != PlanApproved && p.Status != PlanActive {
+		return contracts.Conflict("plan_not_reassignable", "只有已领用的方案可以转派")
+	}
+	if p.AssigneeID == "" {
+		return contracts.Conflict("plan_not_assigned", "方案尚未领用，不能转派")
+	}
+	current, err := requiredText("当前责任人", fromID, 80)
+	if err != nil {
+		return err
+	}
+	if p.AssigneeID != current {
+		return contracts.Conflict("not_current_assignee", "只有当前责任人可以转派该方案")
+	}
+	target, err := requiredText("新责任人", toID, 80)
+	if err != nil {
+		return err
+	}
+	if target == current {
+		return contracts.Invalid("reassignment_same_assignee", "新责任人不能与当前责任人相同")
+	}
+	if assignmentID == "" {
+		return contracts.Internal("missing_generated_id", "领用标识未生成", nil)
+	}
+	stamp := now.UTC()
+	p.AssigneeID = target
+	p.AssignmentID = assignmentID
+	p.Version++
+	p.UpdatedAt = stamp
+	return nil
 }
 
 func (p *PrepPlan) Approve(approvedBy string, now time.Time) error {

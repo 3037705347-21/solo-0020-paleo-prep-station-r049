@@ -14,6 +14,7 @@ func NewRouter(service *station.Service) http.Handler {
 	api := &API{service: service}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
+	mux.HandleFunc("GET /staff", api.listStaff)
 	mux.HandleFunc("GET /specimens", api.listSpecimens)
 	mux.HandleFunc("POST /specimens", api.registerSpecimen)
 	mux.HandleFunc("GET /specimens/{id}", api.getSpecimen)
@@ -22,6 +23,8 @@ func NewRouter(service *station.Service) http.Handler {
 	mux.HandleFunc("POST /specimens/{id}/release", api.releaseSpecimen)
 	mux.HandleFunc("GET /plans/{id}", api.getPlan)
 	mux.HandleFunc("POST /plans/{id}/approval", api.approvePlan)
+	mux.HandleFunc("POST /plans/{id}/claim", api.claimPlan)
+	mux.HandleFunc("POST /plans/{id}/reassign", api.reassignPlan)
 	mux.HandleFunc("POST /plans/{id}/progress", api.logProgress)
 	return requestIDMiddleware(mux)
 }

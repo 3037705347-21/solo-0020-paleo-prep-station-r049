@@ -27,6 +27,10 @@ func (s *Service) LogProgress(
 		if !ok {
 			return notFoundSpecimen(plan.SpecimenID)
 		}
+		active, hasActive := m.ActiveAssignmentForPlan(planID)
+		if !hasActive {
+			return contracts.Conflict("plan_not_assigned", "方案尚未领用，不能记录进度")
+		}
 		previous := m.ProgressForPlan(planID)
 		entry, err := domain.NewProgressEntry(
 			s.nextID("progress"),
@@ -53,10 +57,14 @@ func (s *Service) LogProgress(
 			if err := specimen.MarkStabilized(s.now()); err != nil {
 				return err
 			}
+			if err := active.Complete(s.now()); err != nil {
+				return err
+			}
 		}
 		m.AppendProgress(entry)
 		m.PutPlan(plan)
 		m.PutSpecimen(specimen)
+		m.PutAssignment(active)
 		created = entry
 		return nil
 	})

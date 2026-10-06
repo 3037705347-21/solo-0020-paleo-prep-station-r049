@@ -92,9 +92,14 @@ func (s *Service) GetPlan(ctx context.Context, planID string) (PlanSnapshot, err
 		if !ok {
 			return notFoundPlan(planID)
 		}
+		trail := m.AssignmentsForPlan(planID)
 		snapshot = PlanSnapshot{
-			Plan:     plan,
-			Progress: m.ProgressForPlan(planID),
+			Plan:        plan,
+			Progress:    m.ProgressForPlan(planID),
+			Assignments: trail,
+		}
+		if active, hasActive := currentAssignment(plan, m); hasActive {
+			snapshot.Assignment = active
 		}
 		return nil
 	})

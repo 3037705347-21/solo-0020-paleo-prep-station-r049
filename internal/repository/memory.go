@@ -8,10 +8,12 @@ import (
 )
 
 type state struct {
-	specimens map[string]domain.Specimen
-	plans     map[string]domain.PrepPlan
-	progress  map[string][]domain.ProgressEntry
-	releases  map[string]domain.ReleaseRecord
+	specimens   map[string]domain.Specimen
+	plans       map[string]domain.PrepPlan
+	progress    map[string][]domain.ProgressEntry
+	releases    map[string]domain.ReleaseRecord
+	staff       map[string]domain.StaffMember
+	assignments map[string][]domain.PlanAssignment
 }
 
 type MemoryRepository struct {
@@ -22,10 +24,12 @@ type MemoryRepository struct {
 func NewMemory() *MemoryRepository {
 	return &MemoryRepository{
 		state: state{
-			specimens: make(map[string]domain.Specimen),
-			plans:     make(map[string]domain.PrepPlan),
-			progress:  make(map[string][]domain.ProgressEntry),
-			releases:  make(map[string]domain.ReleaseRecord),
+			specimens:   make(map[string]domain.Specimen),
+			plans:       make(map[string]domain.PrepPlan),
+			progress:    make(map[string][]domain.ProgressEntry),
+			releases:    make(map[string]domain.ReleaseRecord),
+			staff:       make(map[string]domain.StaffMember),
+			assignments: make(map[string][]domain.PlanAssignment),
 		},
 	}
 }
@@ -50,10 +54,12 @@ func (r *MemoryRepository) Mutate(fn func(*Mutation) error) error {
 
 func cloneMutation(source state) *Mutation {
 	copied := state{
-		specimens: make(map[string]domain.Specimen, len(source.specimens)),
-		plans:     make(map[string]domain.PrepPlan, len(source.plans)),
-		progress:  make(map[string][]domain.ProgressEntry, len(source.progress)),
-		releases:  make(map[string]domain.ReleaseRecord, len(source.releases)),
+		specimens:   make(map[string]domain.Specimen, len(source.specimens)),
+		plans:       make(map[string]domain.PrepPlan, len(source.plans)),
+		progress:    make(map[string][]domain.ProgressEntry, len(source.progress)),
+		releases:    make(map[string]domain.ReleaseRecord, len(source.releases)),
+		staff:       make(map[string]domain.StaffMember, len(source.staff)),
+		assignments: make(map[string][]domain.PlanAssignment, len(source.assignments)),
 	}
 	for key, value := range source.specimens {
 		copied.specimens[key] = value
@@ -66,6 +72,12 @@ func cloneMutation(source state) *Mutation {
 	}
 	for key, value := range source.releases {
 		copied.releases[key] = value
+	}
+	for key, value := range source.staff {
+		copied.staff[key] = value
+	}
+	for key, values := range source.assignments {
+		copied.assignments[key] = append([]domain.PlanAssignment(nil), values...)
 	}
 	return &Mutation{state: copied}
 }
@@ -163,4 +175,70 @@ func (m *Mutation) ReleaseForSpecimen(specimenID string) (domain.ReleaseRecord, 
 
 func (m *Mutation) PutRelease(value domain.ReleaseRecord) {
 	m.state.releases[value.ID] = value
+}
+
+func (m *Mutation) GetStaff(id string) (domain.StaffMember, bool) {
+	value, ok := m.state.staff[id]
+	return value, ok
+}
+
+func (m *Mutation) PutStaff(value domain.StaffMember) {
+	m.state.staff[value.ID] = value
+}
+
+func (m *Mutation) ListStaff() []domain.StaffMember {
+	values := make([]domain.StaffMember, 0, len(m.state.staff))
+	for _, value := range m.state.staff {
+		values = append(values, value)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].ID < values[j].ID
+	})
+	return values
+}
+
+// AssignmentsForPlan returns the full responsibility trail of a plan, earliest first.
+func (m *Mutation) AssignmentsForPlan(planID string) []domain.PlanAssignment {
+	return append([]domain.PlanAssignment(nil), m.state.assignments[planID]...)
+}
+
+// ActiveAssignmentForPlan returns the single open responsibility, if any.
+func (m *Mutation) ActiveAssignmentForPlan(planID string) (domain.PlanAssignment, bool) {
+	for _, value := range m.state.assignments[planID] {
+		if value.IsActive() {
+			return value, true
+		}
+	}
+	return domain.PlanAssignment{}, false
+}
+
+// AppendAssignment adds a new responsibility record; only one may be active per plan.
+func (m *Mutation) AppendAssignment(value domain.PlanAssignment) {
+	m.state.assignments[value.PlanID] = append(m.state.assignments[value.PlanID], value)
+}
+
+// PutAssignment overwrites the record sharing the same plan and sequence, used to
+// release or complete an existing responsibility inside a transaction.
+func (m *Mutation) PutAssignment(value domain.PlanAssignment) {
+	values := m.state.assignments[value.PlanID]
+	for i := range values {
+		if values[i].ID == value.ID {
+			values[i] = value
+			return
+		}
+	}
+	m.state.assignments[value.PlanID] = append(values, value)
+}
+
+// CountActiveAssignments counts unfinished responsibilities currently held by a member.
+func (m *Mutation) CountActiveAssignments(staffID string) int {
+	total := 0
+	for _, values := range m.state.assignments {
+		for _, value := range values {
+			if value.IsActive() && value.AssigneeID == staffID {
+				total++
+			}
+		}
+	}
+	return total
 }
